@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
- *	The President and Fellows of Harvard College.
+ *  The President and Fellows of Harvard College.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,12 +52,15 @@ void vm_bootstrap(void);
 int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
+void free_kpages_p(paddr_t paddr);
 vaddr_t alloc_kpages(int npages);
 void free_kpages(vaddr_t addr);
+void free_pagetable(paddr_t * p, size_t s);
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown_all(void);
 void vm_tlbshootdown(const struct tlbshootdown *);
 
+paddr_t vaddr_to_paddr(vaddr_t vaddr, vaddr_t vbase, paddr_t pbase);
 
 #endif /* _VM_H_ */

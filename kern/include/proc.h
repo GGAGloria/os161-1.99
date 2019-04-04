@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013
- *	The President and Fellows of Harvard College.
+ *  The President and Fellows of Harvard College.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,7 @@
 
 #ifndef _PROC_H_
 #define _PROC_H_
-
+#include "opt-A2.h"
 /*
  * Definition of a process.
  *
@@ -38,6 +38,8 @@
 
 #include <spinlock.h>
 #include <thread.h> /* required for struct threadarray */
+#include <limits.h>
+
 
 struct addrspace;
 struct vnode;
@@ -45,19 +47,31 @@ struct vnode;
 struct semaphore;
 #endif // UW
 
+
+#if OPT_A2
+
+typedef struct {
+  pid_t pid;
+  int exitcode;
+  bool is_exited;
+  struct semaphore *sem;
+} pid_struct;
+
+
+#endif
 /*
  * Process structure.
  */
 struct proc {
-	char *p_name;			/* Name of this process */
-	struct spinlock p_lock;		/* Lock for this structure */
-	struct threadarray p_threads;	/* Threads in this process */
+    char *p_name;           /* Name of this process */
+    struct spinlock p_lock;     /* Lock for this structure */
+    struct threadarray p_threads;   /* Threads in this process */
 
-	/* VM */
-	struct addrspace *p_addrspace;	/* virtual address space */
+    /* VM */
+    struct addrspace *p_addrspace;  /* virtual address space */
 
-	/* VFS */
-	struct vnode *p_cwd;		/* current working directory */
+    /* VFS */
+    struct vnode *p_cwd;        /* current working directory */
 
 #ifdef UW
   /* a vnode to refer to the console device */
@@ -65,11 +79,19 @@ struct proc {
   /* you will probably need to change this when implementing file-related
      system calls, since each process will need to keep track of all files
      it has opened, not just the console. */
-  struct vnode *console;                /* a vnode for the console device */
-#endif
+    struct vnode *console;                /* a vnode for the console device */
+#endif //UW
 
-	/* add more material here as needed */
+#if OPT_A2
+    /* add more material here as needed */
+    pid_t p_pid;
+    pid_t parent;
+    pid_struct *children[10];
+#endif
 };
+
+
+
 
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;
@@ -78,6 +100,7 @@ extern struct proc *kproc;
 #ifdef UW
 extern struct semaphore *no_proc_sem;
 #endif // UW
+
 
 /* Call once during system startup to allocate data structures. */
 void proc_bootstrap(void);
@@ -100,5 +123,25 @@ struct addrspace *curproc_getas(void);
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *curproc_setas(struct addrspace *);
 
+#if OPT_A2
+
+
+bool pid_exist(pid_t pid);
+bool pid_child_exist(pid_t pid, int i);
+pid_t pid_getchildpid(pid_t pid, int i);
+pid_t pid_getparent(pid_t pid);
+int pid_getexitcode(pid_t pid, int i);
+bool pid_getexited(pid_t pid, int i);
+struct semaphore *pid_getsemaphore(pid_t pid, int i);
+void pid_setparent(pid_t child, pid_t parent);
+void pid_setexitcode(pid_t pid, int exitcode, int i);
+void pid_setexited(pid_t pid, int i);
+void create_child(pid_t c, int i, pid_t pid);
+
+
+
+
+
+#endif
 
 #endif /* _PROC_H_ */

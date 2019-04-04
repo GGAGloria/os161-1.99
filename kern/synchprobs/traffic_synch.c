@@ -3,25 +3,60 @@
 #include <synchprobs.h>
 #include <synch.h>
 #include <opt-A1.h>
+#define MAX_THREADS 10
 
-/* 
- * This simple default synchronization mechanism allows only vehicle at a time
- * into the intersection.   The intersectionSem is used as a a lock.
- * We use a semaphore rather than a lock so that this code will work even
- * before locks are implemented.
- */
+//define the struct Vehicle with origin and destination
+typedef struct Vehicle
+{
+  Direction origin;
+  Direction destination;
+} Vehicle;
 
-/* 
- * Replace this default synchronization mechanism with your own (better) mechanism
- * needed for your solution.   Your mechanism may use any of the available synchronzation
- * primitives, e.g., semaphores, locks, condition variables.   You are also free to 
- * declare other global variables if your solution requires them.
- */
+static Vehicle * volatile vehicles[MAX_THREADS]; //the queue
+static struct cv *cv;
+static struct lock *lk;
+static int NumThreads = 10;      // number of concurrent simulation threads
+volatile int NumThreadsInQueue = 0; //
 
-/*
- * replace this with declarations of any synchronization and other variables you need here
- */
-static struct semaphore *intersectionSem;
+
+static bool right_turn(Vehicle *v);
+static bool check_constraints(Vehicle *v);
+
+//check whether the vehicle is making a right turn
+bool
+right_turn(Vehicle *v) {
+  KASSERT(v != NULL);
+  if (((v->origin == west) && (v->destination == south)) ||
+      ((v->origin == south) && (v->destination == east)) ||
+      ((v->origin == east) && (v->destination == north)) ||
+      ((v->origin == north) && (v->destination == west))) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+//check whether the new vehicle has a confliction with the vehicles in queue now
+bool
+check_constraints(Vehicle *v) {
+  int i;
+  /* compare newly-added vehicle to each other vehicles in in the intersection */
+  for(i=0;i<NumThreads;i++) {
+    if (vehicles[i]==NULL) continue;
+    /* no conflict if both vehicles have the same origin */
+    if (v->origin == vehicles[i]->origin) continue;
+    /* no conflict if vehicles go in opposite directions */
+    if ((vehicles[i]->origin == v->destination) &&
+        (vehicles[i]->destination == v->origin)) continue;
+    /* no conflict if one makes a right turn and 
+       the other has a different destination */
+    if ((right_turn(vehicles[i]) || right_turn(v)) &&
+  (v->destination != vehicles[i]->destination)) continue;
+    
+    return false;
+  }
+  return true;
+}
 
 
 /* 
@@ -35,10 +70,16 @@ void
 intersection_sync_init(void)
 {
   /* replace this default implementation with your own implementation */
-
-  intersectionSem = sem_create("intersectionSem",1);
-  if (intersectionSem == NULL) {
-    panic("could not create intersection semaphore");
+  for (int i=0; i<MAX_THREADS; i++){
+    vehicles[i] = (Vehicle * volatile) NULL;
+  }
+  cv = cv_create("CV");
+  lk = lock_create("Lock");
+  if (cv == NULL) {
+    panic("could not create cv");
+  }
+  if (lk == NULL) {
+    panic("could not create lock");
   }
   return;
 }
@@ -54,8 +95,10 @@ void
 intersection_sync_cleanup(void)
 {
   /* replace this default implementation with your own implementation */
-  KASSERT(intersectionSem != NULL);
-  sem_destroy(intersectionSem);
+  KASSERT(cv != NULL);
+  cv_destroy(cv);
+  KASSERT(lk != NULL);
+  lock_destroy(lk);
 }
 
 
@@ -75,11 +118,25 @@ intersection_sync_cleanup(void)
 void
 intersection_before_entry(Direction origin, Direction destination) 
 {
-  /* replace this default implementation with your own implementation */
-  (void)origin;  /* avoid compiler complaint about unused parameter */
-  (void)destination; /* avoid compiler complaint about unused parameter */
-  KASSERT(intersectionSem != NULL);
-  P(intersectionSem);
+  KASSERT(cv!=NULL);
+  KASSERT(lk!=NULL);
+  Vehicle *v = kmalloc(sizeof(struct Vehicle));
+  v->origin = origin;
+  v->destination = destination;
+  lock_acquire(lk);
+  while (check_constraints(v) == false || NumThreads == NumThreadsInQueue){
+    cv_wait(cv,lk);
+  }
+  NumThreadsInQueue++;
+  int i;
+  for (i=0; i<NumThreads; i++){
+    if (vehicles[i]==NULL) {
+      vehicles[i] = v;
+      break;
+    }
+  }
+  
+  lock_release(lk);
 }
 
 
@@ -98,8 +155,18 @@ void
 intersection_after_exit(Direction origin, Direction destination) 
 {
   /* replace this default implementation with your own implementation */
-  (void)origin;  /* avoid compiler complaint about unused parameter */
-  (void)destination; /* avoid compiler complaint about unused parameter */
-  KASSERT(intersectionSem != NULL);
-  V(intersectionSem);
+  KASSERT(cv!=NULL);
+  KASSERT(lk!=NULL);
+  lock_acquire(lk);
+  for (int i=0; i<NumThreads; i++){
+    if (vehicles[i]!=NULL){
+      if (vehicles[i]->origin == origin && vehicles[i]->destination == destination){
+        vehicles[i] = NULL;
+        NumThreadsInQueue --;
+        cv_broadcast(cv,lk);
+        break;
+      }
+    }  
+  }
+  lock_release(lk);
 }

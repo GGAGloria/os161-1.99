@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
- *	The President and Fellows of Harvard College.
+ *  The President and Fellows of Harvard College.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -66,6 +66,7 @@
  * a valid address, and will make a *huge* mess if you scribble on it.
  */
 #define PADDR_TO_KVADDR(paddr) ((paddr)+MIPS_KSEG0)
+#define KVADDR_TO_PADDR(kvaddr) ((kvaddr)-MIPS_KSEG0)
 
 /*
  * The top of user space. (Actually, the address immediately above the
@@ -101,7 +102,7 @@
 void ram_bootstrap(void);
 paddr_t ram_stealmem(unsigned long npages);
 void ram_getsize(paddr_t *lo, paddr_t *hi);
-
+void ram_set_to_zero(void);
 /*
  * TLB shootdown bits.
  *
@@ -109,11 +110,11 @@ void ram_getsize(paddr_t *lo, paddr_t *hi);
  */
 
 struct tlbshootdown {
-	/*
-	 * Change this to what you need for your VM design.
-	 */
-	struct addrspace *ts_addrspace;
-	vaddr_t ts_vaddr;
+    /*
+     * Change this to what you need for your VM design.
+     */
+    struct addrspace *ts_addrspace;
+    vaddr_t ts_vaddr;
 };
 
 #define TLBSHOOTDOWN_MAX 16

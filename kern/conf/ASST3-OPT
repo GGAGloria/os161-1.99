@@ -37,5 +37,5 @@ options sfs			# Always use the file system
 
 # UW options for assignment 1 + 2 + 3
 options A3    # use #if OPT_A3 to mark code for A3
-options A2    # includes your A2 code in A3 (you need this e.g., for system calls)
+#options A2    # includes your A2 code in A3 (you need this e.g., for system calls)
 options A1    # includes your A1 code in A3 (you need this e.g., for locks)
